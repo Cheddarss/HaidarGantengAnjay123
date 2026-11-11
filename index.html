@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Urban SIM Eak</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0fdf4;
+            overscroll-behavior: none;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(20, minmax(0, 1fr));
+            gap: 2px;
+            background-color: #cbd5e1;
+            padding: 4px;
+            border-radius: 8px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 760px;
+            margin: 0 auto;
+        }
+        .cell {
+            aspect-ratio: 1;
+            background-color: #e2e8f0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(0.55rem, 1.1vw, 0.9rem);
+            transition: background-color 0.2s, transform 0.2s;
+            user-select: none;
+            border-radius: 2px;
+        }
+        .cell:hover {
+            filter: brightness(0.95);
+            transform: scale(1.05);
+            z-index: 10;
+        }
+        .tool-btn {
+            transition: all 0.2s;
+        }
+        .tool-btn.active {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 2px solid #0f172a;
+        }
+        .logs::-webkit-scrollbar {
+            width: 6px;
+        }
+        .logs::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        .logs::-webkit-scrollbar-thumb {
+            background: #888; 
+            border-radius: 3px;
+        }
+
+        @media (max-width: 640px) {
+            .grid-container {
+                max-width: 100%;
+            }
+            .cell {
+                font-size: 0.58rem;
+                border-radius: 1px;
+            }
+            header h1 {
+                font-size: 1rem;
+            }
+            header p {
+                font-size: 0.65rem;
+            }
+            #budget-display,
+            #pop-display,
+            #happy-display,
+            #day-display {
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col overflow-x-hidden">
+
+    <header class="bg-white border-b border-slate-200 p-3 sm:p-4 shadow-sm z-20">
+        <div class="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+            <div>
+                <h1 class="text-lg sm:text-xl font-bold text-slate-800">🏗️ Urban SIM by Haidar Ganteng</h1>
+                <p class="text-[11px] sm:text-xs text-slate-500">Lagi nyoba-nyoba</p>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center w-full md:w-auto">
+                <div class="flex gap-3 text-[11px] sm:text-sm font-semibold bg-slate-100 p-2 rounded-lg w-full sm:w-auto justify-between">
+                    <div class="flex flex-col items-center px-1">
+                        <span class="text-[10px] text-slate-500">Anggaran</span>
+                        <span id="budget-display" class="text-green-600 text-xs sm:text-sm">Rp 0</span>
+                    </div>
+                    <div class="w-px bg-slate-300 hidden sm:block"></div>
+                    <div class="flex flex-col items-center px-1">
+                        <span class="text-[10px] text-slate-500">Populasi</span>
+                        <span id="pop-display" class="text-blue-600 text-xs sm:text-sm">0</span>
+                    </div>
+                    <div class="w-px bg-slate-300 hidden sm:block"></div>
+                    <div class="flex flex-col items-center px-1">
+                        <span class="text-[10px] text-slate-500">Kebahagiaan</span>
+                        <span id="happy-display" class="text-yellow-600 text-xs sm:text-sm">0%</span>
+                    </div>
+                    <div class="w-px bg-slate-300 hidden sm:block"></div>
+                    <div class="flex flex-col items-center px-1">
+                        <span class="text-[10px] text-slate-500">Waktu</span>
+                        <span id="day-display" class="text-xs sm:text-sm">Belum mulai</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-2 w-full sm:w-auto">
+                    <button
+                        id="btn-start"
+                        onclick="startGame()"
+                        class="flex-1 px-3 py-2 text-[11px] sm:text-xs font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700 shadow-sm text-center"
+                    >
+                        ▶️ Start
+                    </button>
+                    <button
+                        onclick="resetGame()"
+                        class="flex-1 px-3 py-2 text-[11px] sm:text-xs font-semibold rounded-lg bg-red-500 text-white hover:bg-red-600 shadow-sm text-center"
+                    >
+                        🔁 Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col md:flex-row max-w-7xl mx-auto w-full p-3 sm:p-4 gap-4">
+
+        <div class="flex-1 flex flex-col items-center">
+            <div id="grid" class="grid-container"></div>
+            <div class="mt-3 text-center text-[11px] sm:text-xs text-slate-500 px-4">
+                Klik petak untuk membangun zona. Gunakan alat Bongkar untuk mengosongkan petak.
+            </div>
+            <div class="mt-2 text-[10px] sm:text-xs text-slate-500 text-center">
+                Target: minimal <span id="road-min-label"></span> petak Jalan dan <span id="park-min-label"></span> petak RTH sampai Hari ke-<span id="max-day-label"></span>.
+                <span class="block mt-1">Ukuran kawasan: 20 × 20 blok</span>
+            </div>
+        </div>
+
+        <aside class="md:w-80 flex flex-col gap-3 bg-white p-3 sm:p-4 rounded-xl shadow-lg border border-slate-100 max-h-[75vh] overflow-y-auto md:max-h-none md:overflow-visible">
+
+            <div class="space-y-2">
+                <h3 class="font-bold text-xs sm:text-sm uppercase tracking-wide text-slate-500">Alat Zonasi</h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="setTool('residential')" id="btn-residential" class="tool-btn flex items-center gap-2 p-2 rounded-lg bg-blue-100 text-blue-800 hover:bg-blue-200 text-xs">
+                        <span class="text-lg">🏠</span>
+                        <div class="text-left leading-tight">
+                            <div class="font-bold text-[11px]">Residensial</div>
+                            <div class="text-[10px]">Biaya: Rp 50</div>
+                        </div>
+                    </button>
+                    <button onclick="setTool('commercial')" id="btn-commercial" class="tool-btn flex items-center gap-2 p-2 rounded-lg bg-indigo-100 text-indigo-800 hover:bg-indigo-200 text-xs">
+                        <span class="text-lg">🏢</span>
+                        <div class="text-left leading-tight">
+                            <div class="font-bold text-[11px]">Komersial</div>
+                            <div class="text-[10px]">Biaya: Rp 100</div>
+                        </div>
+                    </button>
+                    <button onclick="setTool('industrial')" id="btn-industrial" class="tool-btn flex items-center gap-2 p-2 rounded-lg bg-orange-100 text-orange-800 hover:bg-orange-200 text-xs">
+                        <span class="text-lg">🏭</span>
+                        <div class="text-left leading-tight">
+                            <div class="font-bold text-[11px]">Industri</div>
+                            <div class="text-[10px]">Biaya: Rp 150</div>
+                        </div>
+                    </button>
+                    <button onclick="setTool('park')" id="btn-park" class="tool-btn flex items-center gap-2 p-2 rounded-lg bg-green-100 text-green-800 hover:bg-green-200 text-xs">
+                        <span class="text-lg">🌳</span>
+                        <div class="text-left leading-tight">
+                            <div class="font-bold text-[11px]">RTH / Taman</div>
+                            <div class="text-[10px]">Biaya: Rp 80</div>
+                        </div>
+                    </button>
+                    <button onclick="setTool('road')" id="btn-road" class="tool-btn flex items-center gap-2 p-2 rounded-lg bg-gray-100 text-gray-800 hover:bg-gray-200 text-xs">
+                        <span class="text-lg">🛣️</span>
+                        <div class="text-left leading-tight">
+                            <div class="font-bold text-[11px]">Jalan</div>
+                            <div class="text-[10px]">Biaya: Rp 10</div>
+                        </div>
+                    </button>
+                    <button onclick="setTool('education')" id="btn-education" class="tool-btn flex items-center gap-2 p-2 rounded-lg bg-amber-100 text-amber-800 hover:bg-amber-200 text-xs">
+                        <span class="text-lg">🏫</span>
+                        <div class="text-left leading-tight">
+                            <div class="font-bold text-[11px]">Pendidikan</div>
+                            <div class="text-[10px]">Biaya: Rp 120</div>
+                            
+                        </div>
+                    </button>
+                    <button onclick="setTool('health')" id="btn-health" class="tool-btn flex items-center gap-2 p-2 rounded-lg bg-rose-100 text-rose-800 hover:bg-rose-200 text-xs">
+                        <span class="text-lg">🏥</span>
+                        <div class="text-left leading-tight">
+                            <div class="font-bold text-[11px]">Kesehatan</div>
+                            <div class="text-[10px]">Biaya: Rp 120</div>
+                            
+                        </div>
+                    </button>
+                    <button onclick="setTool('halte')" id="btn-halte" class="tool-btn flex items-center gap-2 p-2 rounded-lg bg-cyan-100 text-cyan-800 hover:bg-cyan-200 text-xs">
+                        <span class="text-lg">🚏</span>
+                        <div class="text-left leading-tight">
+                            <div class="font-bold text-[11px]">Halte</div>
+                            <div class="text-[10px]">Biaya: Rp 60</div>
+        
+                        </div>
+                    </button>
+                    <button onclick="setTool('bulldoze')" id="btn-bulldoze" class="tool-btn flex items-center gap-2 p-2 rounded-lg bg-red-100 text-red-800 hover:bg-red-200 text-xs">
+                        <span class="text-lg">🚧</span>
+                        <div class="text-left leading-tight">
+                            <div class="font-bold text-[11px]">Bongkar</div>
+                            <div class="text-[10px]">Biaya: Rp 20</div>
+                        </div>
+                    </button>
+                </div>
+
+                <div class="mt-2 text-[10px] sm:text-xs text-slate-600">
+                    <div>📏 Threshold Jalan: <span id="road-count-display">0</span> / <span id="road-min-display"></span></div>
+                    <div>🌳 Threshold RTH: <span id="park-count-display">0</span> / <span id="park-min-display"></span></div>
+                </div>
+            </div>
+
+            <div class="flex-1 bg-slate-50 rounded-lg p-2 sm:p-3 overflow-hidden flex flex-col border border-slate-200">
+                <h3 class="font-bold text-[11px] text-slate-500 mb-1">Laporan Kota</h3>
+                <div id="logs" class="logs flex-1 overflow-y-auto text-[10px] sm:text-xs space-y-1 font-mono">
+                    <div class="text-slate-400 italic">> Tekan tombol START untuk memulai simulasi...</div>
+                </div>
+            </div>
+
+            <div class="bg-yellow-50 p-2 sm:p-3 rounded border border-yellow-200 text-[10px] sm:text-xs text-yellow-800">
+                <strong>Tips:</strong> Industri menghasilkan pendapatan, tetapi menurunkan kebahagiaan dan populasi hunian di sekitarnya. Taman meningkatkan kebahagiaan. Pendidikan dan kesehatan menjangkau 2 blok (+15), sedangkan halte menjangkau 1 blok (+10). Setiap hari simulasi berjalan selama 5 detik.
+            </div>
+        </aside>
+    </main>
+
+    <div id="game-over-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white p-4 sm:p-6 rounded-lg shadow-xl max-w-sm w-[90%] text-center">
+            <h2 class="text-xl sm:text-2xl font-bold mb-2 text-red-600" id="game-over-title">Bangkrut! 💸</h2>
+            <p class="text-gray-600 mb-4 text-sm" id="game-over-message">Anggaran kota telah habis. Anda gagal mengelola keuangan kota.</p>
+            <div id="summary-box" class="bg-slate-50 rounded-lg p-3 text-xs sm:text-sm text-slate-700 mb-3 text-left">
+                <!-- Ringkasan hasil perencanaan akan muncul di sini -->
+            </div>
+            <button onclick="resetGame()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">Mulai Ulang</button>
+        </div>
+    </div>
+
+    <script>
+        const GRID_SIZE = 20;
+        const INITIAL_BUDGET = 1000;
+        const TICK_RATE = 5000;
+        const MAX_DAY = 60;
+
+        const MIN_ROAD_TILES = 15;
+        const MIN_PARK_TILES = 20;
+
+        const BUILDINGS = {
+            residential: { symbol: '🏠', cost: 50, color: '#bfdbfe', income: 5, upkeep: 2, type: 'residential' },
+            commercial: { symbol: '🏢', cost: 100, color: '#c7d2fe', income: 15, upkeep: 0, type: 'commercial' },
+            industrial: { symbol: '🏭', cost: 150, color: '#fed7aa', income: 25, upkeep: 0, type: 'industrial' },
+            park: { symbol: '🌳', cost: 80, color: '#bbf7d0', income: 0, upkeep: 5, type: 'park' },
+            road: { symbol: '🛣️', cost: 10, color: '#f3f4f6', income: 0, upkeep: 1, type: 'road' },
+            education: { symbol: '🏫', cost: 120, color: '#fef3c7', income: 0, upkeep: 3, type: 'education' },
+            health: { symbol: '🏥', cost: 120, color: '#ffe4e6', income: 0, upkeep: 3, type: 'health' },
+            halte: { symbol: '🚏', cost: 60, color: '#cffafe', income: 0, upkeep: 1, type: 'halte' },
+            bulldoze: { symbol: '', cost: 20, type: 'empty' }
+        };
+
+        let budget = INITIAL_BUDGET;
+        let population = 0;
+        let happiness = 50;
+        let day = 0;
+        let currentTool = 'residential';
+        let gridData = Array(GRID_SIZE * GRID_SIZE).fill(null);
+        let gameLoop = null;
+        let gameStarted = false;
+
+        const gridEl = document.getElementById('grid');
+        const logsEl = document.getElementById('logs');
+
+        function buildEmptyGrid() {
+            gridEl.innerHTML = '';
+            for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.index = i;
+                cell.onclick = () => handleCellClick(i);
+                gridEl.appendChild(cell);
+            }
+        }
+
+        function countTiles(type) {
+            return gridData.reduce((acc, cell) => acc + (cell && cell.type === type ? 1 : 0), 0);
+        }
+
+        function updateThresholdUI() {
+            const roadCount = countTiles('road');
+            const parkCount = countTiles('park');
+
+            document.getElementById('road-count-display').textContent = roadCount;
+            document.getElementById('park-count-display').textContent = parkCount;
+            document.getElementById('road-min-display').textContent = MIN_ROAD_TILES;
+            document.getElementById('park-min-display').textContent = MIN_PARK_TILES;
+
+            document.getElementById('road-min-label').textContent = MIN_ROAD_TILES;
+            document.getElementById('park-min-label').textContent = MIN_PARK_TILES;
+            document.getElementById('max-day-label').textContent = MAX_DAY;
+        }
+
+        function initGame() {
+            gridData = Array(GRID_SIZE * GRID_SIZE).fill(null);
+            buildEmptyGrid();
+
+            budget = INITIAL_BUDGET;
+            population = 0;
+            happiness = 50;
+            day = 1;
+            gameStarted = true;
+
+            document.getElementById('game-over-modal').style.display = 'none';
+            document.getElementById('game-over-title').textContent = 'Bangkrut! 💸';
+            document.getElementById('game-over-message').textContent = 'Anggaran kota telah habis. Anda gagal mengelola keuangan kota.';
+            const summaryBox = document.getElementById('summary-box');
+            if (summaryBox) summaryBox.innerHTML = '';
+
+            setTool('residential');
+            logsEl.innerHTML = '';
+            log('> Simulasi dimulai...', 'text-slate-400 italic');
+            log('Selamat datang Walikota baru!', 'text-green-600');
+
+            updateUI();
+            updateThresholdUI();
+
+            if (gameLoop) clearInterval(gameLoop);
+            gameLoop = setInterval(gameTick, TICK_RATE);
+
+            const btnStart = document.getElementById('btn-start');
+            if (btnStart) {
+                btnStart.disabled = true;
+                btnStart.classList.add('opacity-60', 'cursor-not-allowed');
+            }
+        }
+
+        function startGame() {
+            if (!gameStarted) {
+                initGame();
+            }
+        }
+
+        function setTool(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+            const btn = document.getElementById('btn-' + tool);
+            if (btn) btn.classList.add('active');
+        }
+
+        function handleCellClick(index) {
+            if (!gameStarted) {
+                log('Tekan START dulu untuk memulai simulasi.', 'text-orange-500');
+                return;
+            }
+
+            const cellData = gridData[index];
+            const toolData = BUILDINGS[currentTool];
+
+            if (currentTool === 'bulldoze') {
+                if (cellData) {
+                    if (budget >= toolData.cost) {
+                        updateBudget(-toolData.cost);
+                        gridData[index] = null;
+                        renderCell(index);
+                        log('Menghancurkan bangunan (-Rp ' + toolData.cost + ')', 'text-red-500');
+                    } else {
+                        log('Anggaran tidak cukup!', 'text-red-600 font-bold');
+                    }
+                }
+                updateThresholdUI();
+                return;
+            }
+
+            if (cellData === null) {
+                if (budget >= toolData.cost) {
+                    updateBudget(-toolData.cost);
+                    gridData[index] = Object.assign({}, toolData, { id: Date.now() });
+                    renderCell(index);
+                    const toolNames = {
+                        residential: 'Residensial', commercial: 'Komersial', industrial: 'Industri',
+                        park: 'RTH / Taman', road: 'Jalan', education: 'Pendidikan',
+                        health: 'Kesehatan', halte: 'Halte'
+                    };
+                    log('Membangun ' + (toolNames[currentTool] || currentTool) + ' (-Rp ' + toolData.cost + ')');
+                } else {
+                    log('Anggaran tidak cukup!', 'text-red-600 font-bold');
+                }
+            } else {
+                log('Lahan sudah terisi! Gunakan alat Bongkar.', 'text-orange-500');
+            }
+            updateThresholdUI();
+        }
+
+        function renderCell(index) {
+            const cell = gridEl.children[index];
+            const data = gridData[index];
+            if (data) {
+                cell.textContent = data.symbol;
+                cell.style.backgroundColor = data.color;
+            } else {
+                cell.textContent = '';
+                cell.style.backgroundColor = '#e2e8f0';
+            }
+        }
+
+        function updateBudget(amount) {
+            budget += amount;
+            updateUI();
+            if (budget < 0) {
+                gameOver('budget');
+            }
+        }
+
+        function getNeighbors(index) {
+            const neighbors = [];
+            const x = index % GRID_SIZE;
+            const y = Math.floor(index / GRID_SIZE);
+
+            if (y > 0) neighbors.push(gridData[index - GRID_SIZE]);
+            if (y < GRID_SIZE - 1) neighbors.push(gridData[index + GRID_SIZE]);
+            if (x > 0) neighbors.push(gridData[index - 1]);
+            if (x < GRID_SIZE - 1) neighbors.push(gridData[index + 1]);
+
+            if (y > 0 && x > 0) neighbors.push(gridData[index - GRID_SIZE - 1]);
+            if (y > 0 && x < GRID_SIZE - 1) neighbors.push(gridData[index - GRID_SIZE + 1]);
+            if (y < GRID_SIZE - 1 && x > 0) neighbors.push(gridData[index + GRID_SIZE - 1]);
+            if (y < GRID_SIZE - 1 && x < GRID_SIZE - 1) neighbors.push(gridData[index + GRID_SIZE + 1]);
+
+            return neighbors.filter(n => n !== null && n !== undefined);
+        }
+
+        // Cakupan dihitung berdasarkan jarak blok pada grid (termasuk diagonal).
+        // Pendidikan dan kesehatan memakai radius 2 blok; halte memakai radius 1 blok.
+        function hasFacilityWithinRange(index, facilityType, range) {
+            const x = index % GRID_SIZE;
+            const y = Math.floor(index / GRID_SIZE);
+
+            for (let dy = -range; dy <= range; dy++) {
+                for (let dx = -range; dx <= range; dx++) {
+                    if (dx === 0 && dy === 0) continue;
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    if (nx < 0 || nx >= GRID_SIZE || ny < 0 || ny >= GRID_SIZE) continue;
+
+                    const nearbyCell = gridData[ny * GRID_SIZE + nx];
+                    if (nearbyCell && nearbyCell.type === facilityType) return true;
+                }
+            }
+            return false;
+        }
+
+        function gameTick() {
+            if (!gameStarted) return;
+
+            day++;
+
+            if (day > MAX_DAY) {
+                log('Simulasi berhenti otomatis pada Hari ' + MAX_DAY + '.', 'text-blue-600 font-bold');
+                clearInterval(gameLoop);
+                gameOver('maxday');
+                return;
+            }
+
+            let dailyIncome = 0;
+            let dailyUpkeep = 0;
+            let totalPop = 0;
+            let totalHappyScore = 0;
+            let residentialCount = 0;
+
+            gridData.forEach((cell, index) => {
+                if (!cell) return;
+
+                dailyIncome += (cell.income || 0);
+                dailyUpkeep += (cell.upkeep || 0);
+
+                if (cell.type === 'residential') {
+                    residentialCount++;
+                    const neighbors = getNeighbors(index);
+
+                    let cellPop = 10;
+                    let cellHappy = 50;
+
+                    let hasPark = false;
+                    let hasIndustry = false;
+                    let hasCommercial = false;
+
+                    neighbors.forEach(n => {
+                        if (n.type === 'park') hasPark = true;
+                        if (n.type === 'industrial') hasIndustry = true;
+                        if (n.type === 'commercial') hasCommercial = true;
+                    });
+
+                    if (hasPark) { cellHappy += 30; cellPop += 5; }
+                    if (hasIndustry) { cellHappy -= 40; cellPop -= 8; }
+                    if (hasCommercial) { cellHappy += 10; }
+                    else { cellHappy -= 5; }
+
+                    // Fasilitas pelayanan kota meningkatkan indeks kebahagiaan hunian.
+                    if (hasFacilityWithinRange(index, 'education', 2)) cellHappy += 15;
+                    if (hasFacilityWithinRange(index, 'health', 2)) cellHappy += 15;
+                    if (hasFacilityWithinRange(index, 'halte', 1)) cellHappy += 10;
+
+                    if (cellHappy > 100) cellHappy = 100;
+                    if (cellHappy < 0) cellHappy = 0;
+                    if (cellPop < 0) cellPop = 0;
+
+                    totalPop += cellPop;
+                    totalHappyScore += cellHappy;
+                }
+            });
+
+            const netIncome = dailyIncome - dailyUpkeep;
+            updateBudget(netIncome);
+
+            population = totalPop;
+            happiness = residentialCount > 0 ? Math.round(totalHappyScore / residentialCount) : 50;
+
+            if (day % 5 === 0) {
+                log('Hari ' + day + ': Pendapatan +' + dailyIncome + ', Biaya -' + dailyUpkeep, netIncome >= 0 ? 'text-green-600' : 'text-red-500');
+            }
+
+            updateUI();
+            updateThresholdUI();
+        }
+
+        function updateUI() {
+            document.getElementById('budget-display').textContent = 'Rp ' + budget;
+            document.getElementById('pop-display').textContent = population;
+            document.getElementById('happy-display').textContent = happiness + '%';
+            document.getElementById('day-display').textContent = gameStarted ? ('Hari ' + day) : 'Belum mulai';
+
+            const hEl = document.getElementById('happy-display');
+            if (happiness > 70) hEl.className = 'text-green-600 font-bold text-xs sm:text-sm';
+            else if (happiness < 40) hEl.className = 'text-red-600 font-bold text-xs sm:text-sm';
+            else hEl.className = 'text-yellow-600 text-xs sm:text-sm';
+        }
+
+        function log(msg, classes = '') {
+            const div = document.createElement('div');
+            div.textContent = '> ' + msg;
+            div.className = classes;
+            logsEl.appendChild(div);
+            logsEl.scrollTop = logsEl.scrollHeight;
+        }
+
+        function gameOver(reason) {
+            clearInterval(gameLoop);
+            gameStarted = false;
+
+            const modal = document.getElementById('game-over-modal');
+            const titleEl = document.getElementById('game-over-title');
+            const msgEl = document.getElementById('game-over-message');
+            const summaryBox = document.getElementById('summary-box');
+
+            const roadCount = countTiles('road');
+            const parkCount = countTiles('park');
+            const meetRoad = roadCount >= MIN_ROAD_TILES;
+            const meetPark = parkCount >= MIN_PARK_TILES;
+
+            if (reason === 'budget') {
+                titleEl.textContent = 'Bangkrut! 💸';
+                msgEl.textContent = 'Anggaran kota telah habis. Anda gagal mengelola keuangan kota.';
+            } else if (reason === 'maxday') {
+                if (meetRoad && meetPark) {
+                    titleEl.textContent = 'Simulasi Selesai ✅';
+                    msgEl.textContent = 'Hari ke-' + MAX_DAY + ' tercapai. Threshold jalan dan RTH terpenuhi.';
+                } else {
+                    titleEl.textContent = 'Rencana Tidak Memenuhi Syarat ⚠️';
+                    msgEl.textContent = 'Hari ke-' + MAX_DAY + ' tercapai, tetapi threshold belum terpenuhi.';
+                }
+            }
+
+            if (summaryBox) {
+                let evalMsg = '';
+                if (reason === 'budget') {
+                    evalMsg = 'Rencana kolaps karena kebangkrutan. Struktur ruang belum berkelanjutan secara fiskal.';
+                } else if (meetRoad && meetPark && happiness >= 70) {
+                    evalMsg = 'Rencana cukup seimbang (kebahagiaan di atas 70% dan threshold jalan & RTH terpenuhi).';
+                } else if (meetRoad && meetPark && happiness < 70) {
+                    evalMsg = 'Secara fisik rencana sudah memenuhi threshold jalan dan RTH, tetapi kualitas hidup (kebahagiaan) masih perlu ditingkatkan.';
+                } else if (!meetRoad || !meetPark) {
+                    evalMsg = 'Rencana belum memenuhi standar minimum jaringan jalan dan/atau RTH sehingga perlu revisi struktur ruang.';
+                }
+
+                summaryBox.innerHTML = ''
+                    + '<strong>Ringkasan Hari ke-' + day + '</strong><br>'
+                    + '• Sisa anggaran: Rp ' + budget + '<br>'
+                    + '• Populasi: ' + population + ' jiwa<br>'
+                    + '• Kebahagiaan: ' + happiness + '%<br>'
+                    + '• Jalan: ' + roadCount + ' petak (min ' + MIN_ROAD_TILES + ')<br>'
+                    + '• RTH: ' + parkCount + ' petak (min ' + MIN_PARK_TILES + ')<br>'
+                    + '• Pendidikan: ' + countTiles('education') + ' fasilitas<br>'
+                    + '• Kesehatan: ' + countTiles('health') + ' fasilitas<br>'
+                    + '• Halte: ' + countTiles('halte') + ' fasilitas<br><br>'
+                    + '<em>' + evalMsg + '</em>';
+            }
+
+            modal.style.display = 'flex';
+
+            const btnStart = document.getElementById('btn-start');
+            if (btnStart) {
+                btnStart.disabled = false;
+                btnStart.classList.remove('opacity-60', 'cursor-not-allowed');
+            }
+        }
+
+        function resetGame() {
+            if (gameLoop) clearInterval(gameLoop);
+            gameLoop = null;
+            gameStarted = false;
+
+            gridData = Array(GRID_SIZE * GRID_SIZE).fill(null);
+            buildEmptyGrid();
+
+            budget = 0;
+            population = 0;
+            happiness = 0;
+            day = 0;
+
+            document.getElementById('game-over-modal').style.display = 'none';
+            const summaryBox = document.getElementById('summary-box');
+            if (summaryBox) summaryBox.innerHTML = '';
+
+            logsEl.innerHTML = '';
+            log('> Tekan tombol START untuk memulai simulasi...', 'text-slate-400 italic');
+
+            updateUI();
+            updateThresholdUI();
+
+            const btnStart = document.getElementById('btn-start');
+            if (btnStart) {
+                btnStart.disabled = false;
+                btnStart.classList.remove('opacity-60', 'cursor-not-allowed');
+            }
+        }
+
+        // Build initial empty grid & labels (tanpa mulai simulasi)
+        buildEmptyGrid();
+        updateThresholdUI();
+        updateUI();
+    </script>
+</body>
+</html>
